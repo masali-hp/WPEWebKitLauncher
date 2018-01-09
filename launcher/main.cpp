@@ -132,6 +132,9 @@ int main(int argc, char* argv[])
     WKRelease(pageGroupIdentifier);
 
     auto preferences = WKPreferencesCreate();
+
+#if USING_WPE_WEBKIT
+    // These methods were introduced in the WPE webkit fork but never went upstream
     // Allow mixed content.
     WKPreferencesSetAllowRunningOfInsecureContent(preferences, true);
     WKPreferencesSetAllowDisplayOfInsecureContent(preferences, true);
@@ -140,6 +143,7 @@ int main(int argc, char* argv[])
     // By default allow console log messages to system console reporting.
     if (!g_getenv("WPE_SHELL_DISABLE_CONSOLE_LOG"))
       WKPreferencesSetLogsPageMessagesToSystemConsoleEnabled(preferences, true);
+#endif
 
     WKPageGroupSetPreferences(pageGroup, preferences);
 
