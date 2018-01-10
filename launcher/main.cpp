@@ -28,8 +28,11 @@
 #include <WPE/WebKit/WKCookieManagerSoup.h>
 
 #include <cstdio>
+#include <cstring>
 #include <glib.h>
 #include <initializer_list>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 WKPageNavigationClientV0 s_navigationClient = {
     { 0, nullptr },
@@ -104,10 +107,49 @@ WKViewClientV0 s_viewClient = {
 
 int main(int argc, char* argv[])
 {
+    const char* url = "http://youtube.com/tv";
+#ifdef WIN32
+    const char * injected_bundle_path = nullptr;
+#else
+    const char * injected_bundle_path = "/usr/lib/libWPEInjectedBundle.so";
+#endif
+
+    for (int i = 1; i < argc; i++) {
+      const char * arg = argv[i];
+      if (strcmp(arg, "--injected-bundle-path") == 0) {
+        if (i == argc - 1) {
+          fprintf(stderr, "--injected-bundle-path requires another argument - the path to the injected bundle\n");
+          return -1;
+        }
+        else {
+          injected_bundle_path = argv[i + 1];
+          i++;
+        }
+      }
+      else {
+        url = arg;
+      }
+    }
+
+#ifdef WIN32
+    if (!injected_bundle_path) {
+        fprintf(stderr, "Error: no --injected-bundle-path arg passed\n");
+        return -1;
+    }
+#endif
+
+    {
+      struct stat buffer;
+      if (stat(injected_bundle_path, &buffer) != 0) {
+        fprintf(stderr, "Error: injected bundle %s not found\n");
+        return -1;
+      }
+    }
+
     GMainLoop* loop = g_main_loop_new(nullptr, FALSE);
 
     auto contextConfiguration = WKContextConfigurationCreate();
-    auto injectedBundlePath = WKStringCreateWithUTF8CString("/usr/lib/libWPEInjectedBundle.so");
+    auto injectedBundlePath = WKStringCreateWithUTF8CString(injected_bundle_path);
     WKContextConfigurationSetInjectedBundlePath(contextConfiguration, injectedBundlePath);
 
     gchar *wpeStoragePath = g_build_filename(g_get_user_cache_dir(), "wpe", "local-storage", nullptr);
@@ -165,10 +207,6 @@ int main(int argc, char* argv[])
 
     auto page = WKViewGetPage(view);
     WKPageSetPageNavigationClient(page, &s_navigationClient.base);
-
-    const char* url = "http://youtube.com/tv";
-    if (argc > 1)
-        url = argv[1];
 
     auto shellURL = WKURLCreateWithUTF8CString(url);
     WKPageLoadURL(page, shellURL);
