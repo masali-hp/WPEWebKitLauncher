@@ -186,6 +186,9 @@ static WKBundleClientV1 s_bundleClient = {
 };
 
 extern "C"
+#if WIN32
+_declspec(dllexport)
+#endif
 void WKBundleInitialize(WKBundleRef bundle, WKTypeRef)
 {
     fprintf(stderr, "[WPEInjectedBundle] Initialized.\n");

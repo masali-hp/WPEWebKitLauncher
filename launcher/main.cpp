@@ -141,7 +141,7 @@ int main(int argc, char* argv[])
     {
       struct stat buffer;
       if (stat(injected_bundle_path, &buffer) != 0) {
-        fprintf(stderr, "Error: injected bundle %s not found\n");
+        fprintf(stderr, "Error: injected bundle %s not found\n", injected_bundle_path);
         return -1;
       }
     }
