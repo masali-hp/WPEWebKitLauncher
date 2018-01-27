@@ -11,6 +11,9 @@ if (WIN32)
     find_library(GLIB_LIBRARIES
         NAMES glib-2.0
     )
+    find_path(GLIB_INCLUDE_DIRS
+        NAMES glib.h
+    )
 else ()
     find_package(PkgConfig)
     pkg_search_module(PC_GLIB REQUIRED glib-2.0)
