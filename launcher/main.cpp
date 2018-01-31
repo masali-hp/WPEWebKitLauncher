@@ -29,6 +29,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <cstdlib>
 #include <glib.h>
 #include <initializer_list>
 #include <sys/types.h>
@@ -84,27 +85,6 @@ WKPageNavigationClientV0 s_navigationClient = {
     nullptr, // didRemoveNavigationGestureSnapshot
 };
 
-WKViewClientV0 s_viewClient = {
-    { 0, nullptr },
-    // frameDisplayed
-    [](WKViewRef, const void*) {
-        static unsigned s_frameCount = 0;
-        static gint64 lastDumpTime = g_get_monotonic_time();
-
-        if (!g_getenv("WPE_DISPLAY_FPS"))
-          return;
-
-        ++s_frameCount;
-        gint64 time = g_get_monotonic_time();
-        if (time - lastDumpTime >= 5 * G_USEC_PER_SEC) {
-            fprintf(stderr, "[WPELauncher] %.2f FPS\n",
-                s_frameCount * G_USEC_PER_SEC * 1.0 / (time - lastDumpTime));
-            s_frameCount = 0;
-            lastDumpTime = time;
-        }
-    },
-};
-
 int main(int argc, char* argv[])
 {
     const char* url = "http://youtube.com/tv";
@@ -113,6 +93,7 @@ int main(int argc, char* argv[])
 #else
     const char * injected_bundle_path = "/usr/lib/libWPEInjectedBundle.so";
 #endif
+    int width = 0, height = 0, style = -1;
 
     for (int i = 1; i < argc; i++) {
       const char * arg = argv[i];
@@ -125,6 +106,26 @@ int main(int argc, char* argv[])
           injected_bundle_path = argv[i + 1];
           i++;
         }
+      }
+      else if (strcmp(arg, "--width") == 0) {
+          if (i == argc - 1) {
+              fprintf(stderr, "--width requires another argument - the display width\n");
+              return -1;
+          }
+          else {
+              width = atoi(argv[i + 1]);
+              i++;
+          }
+      }
+      else if (strcmp(arg, "--height") == 0) {
+          if (i == argc - 1) {
+              fprintf(stderr, "--height requires another argument - the display height\n");
+              return -1;
+          }
+          else {
+              height = atoi(argv[i + 1]);
+              i++;
+          }
       }
       else {
         url = arg;
@@ -203,6 +204,42 @@ int main(int argc, char* argv[])
     }
 
     auto view = WKViewCreate(pageConfiguration);
+
+    if (width != 0 && height != 0)
+        WKViewSetSizeAndStyle(view, width, height, style);
+
+    struct capture_stuff
+    {
+        GMainLoop* mainLoop;
+    };
+    capture_stuff capture{ loop };
+
+    WKViewClientV1 s_viewClient = {
+        { 1, &capture },
+        // frameDisplayed
+        [](WKViewRef, const void*) {
+            static unsigned s_frameCount = 0;
+            static gint64 lastDumpTime = g_get_monotonic_time();
+
+            if (!g_getenv("WPE_DISPLAY_FPS"))
+                return;
+
+            ++s_frameCount;
+            gint64 time = g_get_monotonic_time();
+            if (time - lastDumpTime >= 5 * G_USEC_PER_SEC) {
+                fprintf(stderr, "[WPELauncher] %.2f FPS\n",
+                    s_frameCount * G_USEC_PER_SEC * 1.0 / (time - lastDumpTime));
+                s_frameCount = 0;
+                lastDumpTime = time;
+            }
+        },
+        //quitRequested
+        [](WKViewRef view, const void* clientInfo) {
+            const capture_stuff * capture = reinterpret_cast<const capture_stuff*>(clientInfo);
+            g_main_loop_quit(capture->mainLoop);
+        }
+    };
+
     WKViewSetViewClient(view, &s_viewClient.base);
 
     auto page = WKViewGetPage(view);
