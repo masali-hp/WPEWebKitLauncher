@@ -10,6 +10,7 @@ target_include_directories(WPELauncher PUBLIC
 target_link_libraries(WPELauncher
     ${GLIB_LIBRARIES}
     ${WPE_WEBKIT_LIBRARIES}
+    ${WPE_BACKEND_LIBRARY}
 )
 
 install(TARGETS WPELauncher DESTINATION "${CMAKE_INSTALL_PREFIX}/bin")

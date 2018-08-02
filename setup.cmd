@@ -73,8 +73,24 @@ mkdir %script_dir%\build\%config%-%arch%
 cd %script_dir%\build\%config%-%arch%
 echo * > ..\.gitignore
 
+set install_dir=%script_dir%\build\%config%-%arch%\installed
+
+if NOT exist %install_dir%\include mkdir %install_dir%\include
+
+xcopy /F /Y /S %vcpkg_path% %install_dir%
+if "%config%" == "Debug" xcopy /F /Y /S %webkit_repo%\WPEWinLibs\vcpkg\installed\%arch%-windows\include %install_dir%\include
+
 @echo on
-cmake -G %vs_generator% ..\.. -DCMAKE_INCLUDE_PATH=%webkit_repo%\WPEWinLibs\vcpkg\installed\%arch%-windows\include -DCMAKE_LIBRARY_PATH=%vcpkg_path%\lib -DCMAKE_CONFIGURATION_TYPES="%vs_variant%"
+cmake -DBUILD_TYPE=%config% -DCMAKE_INSTALL_PREFIX=%install_dir% -P %webkit_repo%\WebKitBuild-WPE--soup-%arch%\%config%\cmake_install.cmake
+@echo off
+
+if %errorlevel% neq 0 (
+    echo WebKit install failed.
+    exit /b 1
+)
+
+@echo on
+cmake -G %vs_generator% ..\.. -DCMAKE_INCLUDE_PATH=%install_dir%\include -DCMAKE_LIBRARY_PATH=%install_dir%\lib -DCMAKE_CONFIGURATION_TYPES="%vs_variant%"
 devenv /build "%vs_variant%|%vs_arch%" WPELauncher.sln
 @echo off
 
